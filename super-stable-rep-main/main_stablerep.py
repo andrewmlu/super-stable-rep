@@ -30,7 +30,7 @@ import torchvision.transforms as transforms
 
 from dataset.util import GaussianBlur, DownSampleAndUpsample
 from dataset.data import SupconDataset
-from models.losses import MultiPosConLoss, MultiPosConLossMM
+from models.losses import MultiPosConLoss, MultiPosConLossMM, MultiNegConLoss, MultiNegConLossMM
 from models.StableRep import model_dict as v_model_dict
 from models.StableRepMM import model_dict as vt_model_dict
 

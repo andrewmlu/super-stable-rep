@@ -79,6 +79,7 @@ class MultiPosConLoss(nn.Module):
         if local_batch_size != self.last_local_batch_size:
             mask = torch.eq(labels.view(-1, 1),
                             all_labels.contiguous().view(1, -1)).float().to(device)
+            
             self.logits_mask = torch.scatter(
                 torch.ones_like(mask),
                 1,
@@ -254,10 +255,10 @@ class MultiNegConLoss(nn.Module):
         mask = self.mask
 
         # compute logits
-        logits = torch.matmul(feats, all_feats.T) / self.temperature
+        logits = -torch.matmul(feats, all_feats.T) / self.temperature
 
         # NEGATIVE
-        logits = 1 - (logits - (1 - self.logits_mask) * 1e9)
+        logits = logits * (1 - self.logits_mask) * 1e9
 
         # optional: minus the largest logit to stablize logits
         logits = stablize_logits(logits)
@@ -268,7 +269,7 @@ class MultiNegConLoss(nn.Module):
 
         return {'loss': loss, 'image_loss': loss}
 
-
+# Unfinished
 class MultiNegConLossMM(nn.Module):
     """Multi-negative contrastive loss, when multiple images corresponds to the same texts"""
     def __init__(self, temperature=0.1, w1=1.0, w2=1.0):
@@ -308,14 +309,14 @@ class MultiNegConLossMM(nn.Module):
         all_t_feats = torch.cat(torch.distributed.nn.all_gather(t_feats), dim=0)
 
         # compute the logits for image-text contrasting
-        logits_v = 1 - logit_scale * torch.matmul(v_feats, all_t_feats.T)
-        logits_t = 1 - logit_scale * torch.matmul(t_feats, all_v_feats.T)
+        logits_v = -logit_scale * torch.matmul(v_feats, all_t_feats.T)
+        logits_t = -logit_scale * torch.matmul(t_feats, all_v_feats.T)
 
         # compute the logits for image-only contrasting
         feats = outputs['image_feats']
         feats = F.normalize(feats, dim=-1, p=2)
         all_feats = torch.cat(torch.distributed.nn.all_gather(feats), dim=0)
-        logits = torch.matmul(feats, all_feats.T) / self.temperature
+        logits = -torch.matmul(feats, all_feats.T) / self.temperature
 
         # Create label matrix, since in our specific case the
         # label matrix in side each batch is the same, so
@@ -349,9 +350,7 @@ class MultiNegConLossMM(nn.Module):
         # image only loss
         mask = self.mask
         p = mask / mask.sum(1, keepdim=True).clamp(min=1.0)
-
-        # NEGATIVE
-        logits = 1 - (logits - (1 - self.logits_mask) * 1e9)
+        logits = logits * (1 - self.logits_mask) * 1e9
         logits = stablize_logits(logits)
         img_loss = compute_cross_entropy(p, logits)
 
