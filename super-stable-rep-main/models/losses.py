@@ -254,11 +254,9 @@ class MultiNegConLoss(nn.Module):
 
         mask = self.mask
 
-        # compute logits
+        # compute logits (NEGATIVE)
         logits = -torch.matmul(feats, all_feats.T) / self.temperature
-
-        # NEGATIVE
-        logits = logits * (1 - self.logits_mask) * 1e9
+        logits = logits - self.logits_mask * 1e9
 
         # optional: minus the largest logit to stablize logits
         logits = stablize_logits(logits)
