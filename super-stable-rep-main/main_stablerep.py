@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import argparse
+from tqdm import tqdm
 import datetime
 import json
 import math
@@ -30,7 +31,7 @@ import torchvision.transforms as transforms
 
 from dataset.util import GaussianBlur, DownSampleAndUpsample
 from dataset.data import SupconDataset
-from models.losses import MultiPosConLoss, MultiPosConLossMM, MultiNegConLoss, MultiNegConLossMM
+from models.losses import MultiPosConLoss, MultiPosConLossMM, MultiPosNegConLoss
 from models.StableRep import model_dict as v_model_dict
 from models.StableRepMM import model_dict as vt_model_dict
 
@@ -147,6 +148,7 @@ def get_args_parser():
     # SuperStableRep - multi-negative contrastive learning
     parser.add_argument('--neg', action='store_true',
                         help='Enable SuperStableRep for multi-negative contrastive learning')
+    
     return parser
 
 
@@ -238,7 +240,11 @@ def main(args):
     if not args.add_language:
         # StableRep w/o language
         model = v_model_dict[args.model](ssl_mlp_dim=args.ssl_mlp_dim, ssl_emb_dim=args.ssl_emb_dim)
-        criterion = MultiPosConLoss(temperature=args.ssl_temp)
+        if args.neg:
+            print('yes')
+            criterion = MultiPosNegConLoss(temperature=args.ssl_temp)
+        else:
+            criterion = MultiPosConLoss(temperature=args.ssl_temp)
     else:
         # StableRep w/ language
         model = vt_model_dict[args.model](ssl_mlp_dim=args.ssl_mlp_dim, ssl_emb_dim=args.ssl_emb_dim,
@@ -271,6 +277,7 @@ def main(args):
     main_print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
+        print(f"Epoch {epoch}")
 
         if args.distributed:
             train_sampler.set_epoch(epoch)
@@ -330,7 +337,7 @@ def train_one_epoch(model: torch.nn.Module,
         args.batch_size * misc.get_rank()
     text_input = None
 
-    for data_iter_step, data in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+    for data_iter_step, data in tqdm(enumerate(metric_logger.log_every(data_loader, print_freq, header))):
 
         loader_len = len(data_loader)
         misc.adjust_learning_rate(optimizer, data_iter_step / loader_len + epoch, args)
@@ -341,6 +348,8 @@ def train_one_epoch(model: torch.nn.Module,
 
         with torch.cuda.amp.autocast():
             outputs = model(img_input, label_input, text_input)
+
+        # outputs = model(img_input, label_input, text_input)
         loss_dict = loss_fn(outputs)
         loss = loss_dict['loss']
 
@@ -383,7 +392,7 @@ def train_one_epoch(model: torch.nn.Module,
 
 if __name__ == '__main__':
     args = get_args_parser()
-    args = args.parse_args()
+    args, unknown = args.parse_known_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     main(args)

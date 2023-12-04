@@ -54,7 +54,8 @@ class SupconDataset(Dataset):
             for row in tqdm(csv_reader):
                 image = row[0]
                 prompt = row[1]
-                if image.endswith(('.png', '.jpg', '.jpeg')):
+                path = f"/content/drive/MyDrive/Super-Stable-Rep/{image}"
+                if image.endswith(('.png', '.jpg', '.jpeg')) and os.path.exists(path):
                     self.images.append(image)  # relative dir
                     self.captions.append(prompt)
 
@@ -71,11 +72,11 @@ class SupconDataset(Dataset):
         # sample num_view of images and transform them
         images = []
         # random sample
-        view_sample = np.random.choice(len(self.root_list),
-                                       self.num_views,
-                                       replace=False)
-        for i in view_sample:
-            image_path = os.path.join(self.root_list[i], self.images[idx])
+        # view_sample = np.random.choice(len(self.root_list),
+        #                                self.num_views,
+        #                                replace=False)
+        for i in range(self.num_views):
+            image_path = os.path.join(f"/content/drive/MyDrive/Super-Stable-Rep/{self.images[idx]}")
             # open image and convert to rgb
             image = Image.open(image_path).convert('RGB')
             images.append(self.transforms(image))

@@ -54,7 +54,7 @@ def get_args_parser():
                         help='weight decay (default: 0.)')
     parser.add_argument('--print-freq', default=10, type=int,
                         help='print frequency (default: 10)')
-    parser.add_argument('--eval-freq', default=10, type=int,
+    parser.add_argument('--eval_freq', default=5, type=int,
                         help='evaluation frequency by epochs (default: 10)')
 
     parser.add_argument('--world-size', default=1, type=int,
@@ -70,7 +70,7 @@ def get_args_parser():
 
     parser.add_argument('--seed', default=None, type=int,
                         help='seed for initializing training. ')
-    parser.add_argument('--gpu', default=None, type=int,
+    parser.add_argument('--gpu', default=0, type=int,
                         help='GPU id to use.')
     parser.add_argument('--pretrained', default='', type=str,
                         help='path to pretrained checkpoint')
@@ -144,10 +144,17 @@ def get_data_loaders(args):
         normalize,
     ])
 
-    train_dataset = datasets.ImageFolder(
-        os.path.join(args.data, 'train'), train_transform)
-    val_dataset = datasets.ImageFolder(
-        os.path.join(args.data, 'val'), val_transform)
+    # train_dataset = datasets.ImageFolder(
+    #     os.path.join(args.data, 'train'), train_transform)
+    # val_dataset = datasets.ImageFolder(
+    #     os.path.join(args.data, 'val'), val_transform)
+
+    train_dataset = datasets.CIFAR10(root='./data', train=True,
+                                        download=True, transform=train_transform)
+
+
+    val_dataset = datasets.CIFAR10(root='./data', train=False,
+                                       download=True, transform=val_transform)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -217,9 +224,9 @@ def train(train_loader, model, linear_classifiers, optimizer, scheduler, epoch, 
     model.eval()
     linear_classifiers.train(True)
 
-    all_top1 = {k: AverageMeter('Acc@1', ':6.2f') for k in linear_classifiers.module.classifiers_dict.keys()}
-    all_top5 = {k: AverageMeter('Acc@5', ':6.2f') for k in linear_classifiers.module.classifiers_dict.keys()}
-    all_losses = {k: AverageMeter('Loss', ':.4e') for k in linear_classifiers.module.classifiers_dict.keys()}
+    all_top1 = {k: AverageMeter('Acc@1', ':6.2f') for k in linear_classifiers.classifiers_dict.keys()}
+    all_top5 = {k: AverageMeter('Acc@5', ':6.2f') for k in linear_classifiers.classifiers_dict.keys()}
+    all_losses = {k: AverageMeter('Loss', ':.4e') for k in linear_classifiers.classifiers_dict.keys()}
 
     end = time.time()
     for i, (images, target) in enumerate(train_loader):
@@ -234,7 +241,9 @@ def train(train_loader, model, linear_classifiers, optimizer, scheduler, epoch, 
             features = model.forward_features(images)
         outputs = linear_classifiers(features)
 
-        cls_losses = {f"loss_{k}": nn.CrossEntropyLoss()(v, target) for k, v in outputs.items()}
+        target_one_hot = torch.nn.functional.one_hot(target, num_classes=args.num_classes)
+
+        cls_losses = {f"loss_{k}": nn.CrossEntropyLoss()(v, target_one_hot) for k, v in outputs.items()}
         loss = sum(cls_losses.values())
 
         # compute gradient and do SGD step
@@ -284,9 +293,9 @@ def validate(val_loader, model, linear_classifiers, args):
     model.eval()
     linear_classifiers.eval()
 
-    all_top1 = {k: AverageMeter('Acc@1', ':6.2f') for k in linear_classifiers.module.classifiers_dict.keys()}
-    all_top5 = {k: AverageMeter('Acc@5', ':6.2f') for k in linear_classifiers.module.classifiers_dict.keys()}
-    all_losses = {k: AverageMeter('Loss', ':.4e') for k in linear_classifiers.module.classifiers_dict.keys()}
+    all_top1 = {k: AverageMeter('Acc@1', ':6.2f') for k in linear_classifiers.classifiers_dict.keys()}
+    all_top5 = {k: AverageMeter('Acc@5', ':6.2f') for k in linear_classifiers.classifiers_dict.keys()}
+    all_losses = {k: AverageMeter('Loss', ':.4e') for k in linear_classifiers.classifiers_dict.keys()}
 
     with torch.no_grad():
         end = time.time()
@@ -298,7 +307,9 @@ def validate(val_loader, model, linear_classifiers, args):
             features = model.forward_features(images)
             outputs = linear_classifiers(features)
 
-            my_losses = {f"loss_{k}": nn.CrossEntropyLoss()(v, target) for k, v in outputs.items()}
+            target_one_hot = torch.nn.functional.one_hot(target, num_classes=args.num_classes)
+
+            my_losses = {f"loss_{k}": nn.CrossEntropyLoss()(v, target_one_hot) for k, v in outputs.items()}
             min_loss = 1e6
             max_acc1 = -1
             max_acc5 = -1
@@ -385,6 +396,7 @@ def accuracy(output, target, topk=(1,)):
         batch_size = target.size(0)
 
         _, pred = output.topk(maxk, 1, True, True)
+        pred = torch.argmax(pred, dim = -1)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
 
@@ -497,6 +509,6 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Linear probe evaluation', parents=[get_args_parser()])
-    args = parser.parse_args()
+    args = get_args_parser()
+    args, unknown = args.parse_known_args()
     main(args)

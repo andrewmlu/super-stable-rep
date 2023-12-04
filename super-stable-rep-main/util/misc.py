@@ -23,7 +23,7 @@ import math
 
 import torch
 import torch.distributed as dist
-from torch._six import inf
+from torch import inf
 
 
 def adjust_ssl_temperature(epoch, args):
