@@ -272,7 +272,7 @@ class MultiConLoss(nn.Module):
             self.neg_mask = neg_mask * self.neg_logits_mask
 
         pos_mask = self.pos_mask
-        neg_mask = self.neg_mast
+        neg_mask = self.neg_mask
 
         # compute logits
         pos_logits = torch.matmul(feats, all_feats.T) / self.temperature
@@ -285,11 +285,13 @@ class MultiConLoss(nn.Module):
         p_pos = pos_mask / pos_mask.sum(1, keepdim=True).clamp(min=1.0)
         loss_pos = compute_cross_entropy(p_pos, pos_logits)
 
+        print(pos_logits.shape, p_pos.shape)
+
         # compute negative logits
         neg_logits = torch.matmul(feats, all_feats.T) / self.temperature
         neg_logits = neg_logits - (1 - self.neg_logits_mask) * 1e9
 
-        neg_logits = stablize_logits(pos_logits)
+        neg_logits = stablize_logits(neg_logits)
 
         # compute ground-truth distribution for negative samples
         p_neg = neg_mask / neg_mask.sum(1, keepdim=True).clamp(min=1.0)
