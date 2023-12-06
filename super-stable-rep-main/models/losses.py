@@ -211,13 +211,13 @@ class MultiPosConLossMM(nn.Module):
 
 # Multi-Negative Loss
 
-class MultiPosNegConLoss(nn.Module):
+class MultiConLoss(nn.Module):
     """
-    Multi-Negative Contrastive Loss
+    Multi-Positive and Multi-Negative Contrastive Loss
     """
 
     def __init__(self, temperature=0.1):
-        super(MultiPosNegConLoss, self).__init__()
+        super(MultiConLoss, self).__init__()
         self.temperature = temperature
         self.pos_logits_mask = None
         self.pos_mask = None
@@ -247,146 +247,61 @@ class MultiPosNegConLoss(nn.Module):
 
         # compute the mask based on labels
         if local_batch_size != self.last_local_batch_size:
-            mask = torch.eq(labels.view(-1, 1),
+            pos_mask = torch.eq(labels.view(-1, 1),
                             all_labels.contiguous().view(1, -1)).float().to(device)
-            self.logits_mask = torch.scatter(
-                torch.ones_like(mask),
+            self.pos_logits_mask = torch.scatter(
+                torch.ones_like(pos_mask),
                 1,
-                torch.arange(mask.shape[0]).view(-1, 1).to(device) +
+                torch.arange(pos_mask.shape[0]).view(-1, 1).to(device) +
+                local_batch_size * misc.get_rank(),
+                0
+            )
+
+            neg_mask = 1 - pos_mask
+
+            self.neg_logits_mask = torch.scatter(
+                torch.ones_like(neg_mask),
+                1,
+                torch.arange(neg_mask.shape[0]).view(-1, 1).to(device) +
                 local_batch_size * misc.get_rank(),
                 0
             )
 
             self.last_local_batch_size = local_batch_size
-            self.mask = mask * self.logits_mask
+            self.pos_mask = pos_mask * self.pos_logits_mask
+            self.neg_mask = neg_mask * self.neg_logits_mask
 
-        mask = self.mask
+        pos_mask = self.pos_mask
+        neg_mask = self.neg_mast
 
         # compute logits
         pos_logits = torch.matmul(feats, all_feats.T) / self.temperature
-        pos_logits = pos_logits - (1 - self.logits_mask) * 1e9
+        pos_logits = pos_logits - (1 - self.pos_logits_mask) * 1e9
 
         # optional: minus the largest logit to stabilize logits
         pos_logits = stablize_logits(pos_logits)
 
         # compute ground-truth distribution for positive samples
-        p_pos = mask / mask.sum(1, keepdim=True).clamp(min=1.0)
+        p_pos = pos_mask / pos_mask.sum(1, keepdim=True).clamp(min=1.0)
         loss_pos = compute_cross_entropy(p_pos, pos_logits)
 
         # compute negative logits
         neg_logits = torch.matmul(feats, all_feats.T) / self.temperature
-        neg_logits = neg_logits - (self.logits_mask) * 1e9
+        neg_logits = neg_logits - (1 - self.neg_logits_mask) * 1e9
 
         neg_logits = stablize_logits(pos_logits)
 
-        neg_mask = 1 - mask
-
         # compute ground-truth distribution for negative samples
         p_neg = neg_mask / neg_mask.sum(1, keepdim=True).clamp(min=1.0)
-        loss_neg = compute_cross_entropy(p_neg, neg_logits)
+        # loss_neg = compute_cross_entropy(p_neg, neg_logits)
 
-        loss_neg = max(0,1-loss_neg)
+        print(p_neg.shape, neg_logits.shape)
+
+        raise Exception
+
+        loss_neg = max(0, 1 - loss_neg)
 
         # combine positive and negative losses
         loss = loss_pos + loss_neg
 
         return {'loss': loss, 'image_loss': loss}
-
-# Unfinished
-class MultiNegConLossMM(nn.Module):
-    """Multi-negative contrastive loss, when multiple images corresponds to the same texts"""
-    def __init__(self, temperature=0.1, w1=1.0, w2=1.0):
-        """
-        Args:
-            temperature: temperature for contrastive loss
-            w1: weight for the image contrastive part
-            w2: weight for the image-text part
-        """
-        super(MultiPosConLossMM, self).__init__()
-        self.temperature = temperature
-        self.w1 = w1
-        self.w2 = w2
-        self.last_local_batch_size = None
-        self.v_label_matrix = None
-        self.t_label_matrix = None
-        self.mask = None
-        self.logits_mask = None
-
-    def forward(self, outputs):
-        v_feats = outputs['image_emb']
-        t_feats = outputs['text_emb']
-        v_labels = outputs['image_labels']
-        t_labels = outputs['text_labels']
-        logit_scale = outputs['logit_scale']
-        device = (torch.device('cuda')
-                  if v_feats.is_cuda
-                  else torch.device('cpu'))
-
-        v_feats = F.normalize(v_feats, dim=-1, p=2)
-        t_feats = F.normalize(t_feats, dim=-1, p=2)
-
-        v_local_batch_size = v_feats.size(0)
-        t_local_batch_size = t_feats.size(0)
-
-        all_v_feats = torch.cat(torch.distributed.nn.all_gather(v_feats), dim=0)
-        all_t_feats = torch.cat(torch.distributed.nn.all_gather(t_feats), dim=0)
-
-        # compute the logits for image-text contrasting
-        logits_v = -logit_scale * torch.matmul(v_feats, all_t_feats.T)
-        logits_t = -logit_scale * torch.matmul(t_feats, all_v_feats.T)
-
-        # compute the logits for image-only contrasting
-        feats = outputs['image_feats']
-        feats = F.normalize(feats, dim=-1, p=2)
-        all_feats = torch.cat(torch.distributed.nn.all_gather(feats), dim=0)
-        logits = -torch.matmul(feats, all_feats.T) / self.temperature
-
-        # Create label matrix, since in our specific case the
-        # label matrix in side each batch is the same, so
-        # we can just create it once and reuse it. For other
-        # cases, user need to compute it for each batch
-        if v_local_batch_size != self.last_local_batch_size:
-            all_v_labels = concat_all_gather(v_labels)
-            all_t_labels = concat_all_gather(t_labels)
-            all_v_labels = all_v_labels.contiguous().view(1, -1)
-            all_t_labels = all_t_labels.contiguous().view(1, -1)
-
-            # mask matrix for image-text contrastive loss
-            self.v_label_matrix = torch.eq(v_labels.view(-1, 1),
-                                           all_t_labels).float().to(device)
-            self.t_label_matrix = torch.eq(t_labels.view(-1, 1),
-                                           all_v_labels).float().to(device)
-
-            # mask matrix for image supervised contrastive loss
-            self.mask = torch.eq(v_labels.view(-1, 1), all_v_labels).float().to(device)
-            self.logits_mask = torch.scatter(
-                torch.ones_like(self.mask),
-                1,
-                torch.arange(self.mask.shape[0]).view(-1, 1).to(device) +
-                v_local_batch_size * misc.get_rank(),
-                0
-            )
-            self.mask = self.mask * self.logits_mask
-
-            self.last_local_batch_size = v_local_batch_size
-
-        # image only loss
-        mask = self.mask
-        p = mask / mask.sum(1, keepdim=True).clamp(min=1.0)
-        logits = logits * (1 - self.logits_mask) * 1e9
-        logits = stablize_logits(logits)
-        img_loss = compute_cross_entropy(p, logits)
-
-        # image text loss
-        v_mask = self.v_label_matrix
-        p_v = v_mask / v_mask.sum(1, keepdim=True).clamp(min=1.0)
-        t_mask = self.t_label_matrix
-        p_t = t_mask / t_mask.sum(1, keepdim=True).clamp(min=1.0)
-        img_txt_loss = (compute_cross_entropy(p_v, logits_v) + compute_cross_entropy(p_t, logits_t)) / 2
-
-        # total loss
-        loss = self.w1 * img_loss + self.w2 * img_txt_loss
-
-        return {'loss': loss,
-                'image_loss': img_loss,
-                'img_txt_loss': img_txt_loss}

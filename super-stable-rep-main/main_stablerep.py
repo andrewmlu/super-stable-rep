@@ -31,7 +31,7 @@ import torchvision.transforms as transforms
 
 from dataset.util import GaussianBlur, DownSampleAndUpsample
 from dataset.data import SupconDataset
-from models.losses import MultiPosConLoss, MultiPosConLossMM, MultiPosNegConLoss
+from models.losses import MultiPosConLoss, MultiPosConLossMM, MultiConLoss
 from models.StableRep import model_dict as v_model_dict
 from models.StableRepMM import model_dict as vt_model_dict
 
@@ -241,8 +241,7 @@ def main(args):
         # StableRep w/o language
         model = v_model_dict[args.model](ssl_mlp_dim=args.ssl_mlp_dim, ssl_emb_dim=args.ssl_emb_dim)
         if args.neg:
-            print('yes')
-            criterion = MultiPosNegConLoss(temperature=args.ssl_temp)
+            criterion = MultiConLoss(temperature=args.ssl_temp)
         else:
             criterion = MultiPosConLoss(temperature=args.ssl_temp)
     else:
