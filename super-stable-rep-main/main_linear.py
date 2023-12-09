@@ -149,12 +149,17 @@ def get_data_loaders(args):
     # val_dataset = datasets.ImageFolder(
     #     os.path.join(args.data, 'val'), val_transform)
 
-    train_dataset = datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=train_transform)
+    # train_dataset = datasets.CIFAR10(root='./data', train=True,
+    #                                     download=True, transform=train_transform)
 
 
-    val_dataset = datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=val_transform)
+    # val_dataset = datasets.CIFAR10(root='./data', train=False,
+    #                                    download=True, transform=val_transform)
+
+    train_dataset = datasets.ImageNet(root='/content/drive/MyDrive/ImageNet',  split='train', transform=train_transform)
+    
+
+    val_dataset = datasets.ImageNet(root='/content/drive/MyDrive/ImageNet', split='val', transform=val_transform)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
