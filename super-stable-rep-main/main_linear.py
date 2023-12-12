@@ -144,6 +144,8 @@ def get_data_loaders(args):
         normalize,
     ])
 
+    print(args.data)
+
     train_dataset = datasets.ImageNet(root=args.data,  split='train', transform=train_transform)
 
     val_dataset = datasets.ImageNet(root=args.data, split='val', transform=val_transform)

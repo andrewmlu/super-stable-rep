@@ -123,7 +123,7 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--csv_path', default='/content/drive/MyDrive/Super-Stable-Rep/data/img-captions.csv',
                         help='csv file path')
-    parser.add_argument('--folder_list', nargs='+',
+    parser.add_argument('--folder_list', default='/content/drive/MyDrive/CS242-SD-imgs/',
                         help='A list of items')
     parser.add_argument('--n_img', type=int, default=1,
                         help='number of images per caption sample, default: 1')

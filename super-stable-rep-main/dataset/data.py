@@ -54,7 +54,7 @@ class SupconDataset(Dataset):
             for row in tqdm(csv_reader):
                 image = row[0]
                 prompt = row[1]
-                path = f"{input_filename}/{image}"
+                path = f"{root_list}/{image}"
                 if image.endswith(('.png', '.jpg', '.jpeg')) and os.path.exists(path):
                     self.images.append(path)  # relative dir
                     self.captions.append(prompt)
