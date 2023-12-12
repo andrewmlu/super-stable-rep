@@ -3,7 +3,7 @@
 This code is modified from that within the [StableRep repository](https://github.com/google-research/syn-rep-learn) from the paper [StableRep: Synthetic Images from Text-to-Image
 Models Make Strong Visual Representation Learners](https://arxiv.org/abs/2306.00984). Yonglong Tian*, Lijie Fan*, Phillip Isola, Huiwen Chang, Dilip Krishnan.
 
-The original StableRep repository can be found in the syn-rep-learn-main folder, while the implementation of SuperStableRep is in the super-stable-rep-main folder.
+The original StableRep repository can be found in the syn-rep-learn-main folder, while our implementation of SuperStableRep is in the super-stable-rep-main folder.
 
 All code was copied and modified in accordance with the Apache 2.0 license.
 
