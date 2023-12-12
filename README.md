@@ -37,3 +37,12 @@ python main_stablerep.py \
     --n_img 6 --downsample --downsample_prob 0.05 --down_res 64 128 \
     --neg
 ```
+
+After training your model, run the a command like the following for linear probing on the ImageNet 2012 dataset:
+```commandline
+python drive/MyDrive/Super-Stable-Rep/main_linear.py --model base --data ... \
+  --pretrained /path/to/pre-trained/epoch_last.pth \
+  --output-dir /path/to/linear_save \
+  --log-dir /path/to/tensorboard_folder
+  --num-classes 1000
+```
