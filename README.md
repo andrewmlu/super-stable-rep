@@ -44,7 +44,7 @@ python main_stablerep.py \
 
 After training your model, run the a command like the following for linear probing on the ImageNet 2012 dataset:
 ```commandline
-python drive/MyDrive/Super-Stable-Rep/main_linear.py --model base --data ... \
+python drive/MyDrive/Super-Stable-Rep/main_linear.py --model base --data /path/to/imagenet \
   --pretrained /path/to/pre-trained/epoch_last.pth \
   --output-dir /path/to/linear_save \
   --log-dir /path/to/tensorboard_folder
