@@ -257,30 +257,19 @@ class MultiConLoss(nn.Module):
                 0
             )
 
-            # neg_mask = 1 - pos_mask
-
-            # self.neg_logits_mask = torch.scatter(
-            #     torch.ones_like(neg_mask),
-            #     1,
-            #     torch.arange(neg_mask.shape[0]).view(-1, 1).to(device) +
-            #     local_batch_size * misc.get_rank(),
-            #     0
-            # )
-
             self.last_local_batch_size = local_batch_size
             self.mask = mask * self.logits_mask
-            # self.neg_mask = neg_mask * self.neg_logits_mask
 
         mask = self.mask.float()
 
-        all_feats_cs = F.cosine_similarity(all_feats[None,:,:], all_feats[:,None,:], dim=-1)
+        cs = F.cosine_similarity(all_feats[None,:,:], all_feats[:,None,:], dim=-1)
 
         eye = torch.eye(local_batch_size).bool()
 
-        y = all_feats_cs.clone().float()
-        y[eye] = float("-inf")
+        cs_float = cs.clone().float()
+        cs_float[eye] = float("-inf")
 
-        loss = F.binary_cross_entropy((y / self.temperature).sigmoid(), mask, reduction="none")
+        loss = F.binary_cross_entropy((cs_float / self.temperature).sigmoid(), mask, reduction="none")
 
         target_pos = mask.bool()
         target_neg = ~target_pos
@@ -295,33 +284,6 @@ class MultiConLoss(nn.Module):
         num_neg = mask.size(0) - num_pos
 
         loss = ((loss_pos / num_pos) + (loss_neg / num_neg)).mean()
-        # pos_mask = self.pos_mask
-        # neg_mask = self.neg_mask
 
-        # # compute logits
-        # pos_logits = torch.matmul(feats, all_feats.T) / self.temperature
-        # pos_logits = pos_logits - (1 - self.pos_logits_mask) * 1e9
-
-        # # optional: minus the largest logit to stabilize logits
-        # pos_logits = stablize_logits(pos_logits)
-
-        # # compute ground-truth distribution for positive samples
-        # p_pos = pos_mask / pos_mask.sum(1, keepdim=True).clamp(min=1.0)
-        # loss_pos = compute_cross_entropy(p_pos, pos_logits)
-
-        # # compute negative logits
-        # neg_logits = torch.matmul(feats, all_feats.T) / self.temperature
-        # neg_logits = neg_logits - (1 - self.neg_logits_mask) * 1e9
-
-        # neg_logits = stablize_logits(neg_logits)
-
-        # # compute ground-truth distribution for negative samples
-        # p_neg = neg_mask / neg_mask.sum(1, keepdim=True).clamp(min=1.0)
-        # loss_neg = compute_cross_entropy(p_neg, neg_logits)
-
-        # loss_neg = max(0, 1 - loss_neg)
-
-        # # combine positive and negative losses
-        # loss = loss_pos + loss_neg
 
         return {'loss': loss, 'image_loss': loss}

@@ -32,7 +32,7 @@ from util import misc
 def get_args_parser():
     parser = argparse.ArgumentParser(description='Linear probe evaluation', add_help=False)
 
-    parser.add_argument('--data', default='/dev/shm/imagenet', type=str,
+    parser.add_argument('--data', default='/content/drive/MyDrive/ImageNet', type=str,
                         help='linear probing dataset path')
     parser.add_argument('--output-dir', default='./outputs/', type=str,
                         help='path where to save checkpoints')
@@ -77,7 +77,7 @@ def get_args_parser():
     parser.add_argument('--use_bn', action='store_true',
                         help='use batch norm in the linear classifier')
 
-    parser.add_argument('--num-classes', default=1000, type=int,
+    parser.add_argument('--num-classes', default=100, type=int,
                         help='number of classes')
     parser.add_argument('--base_lrs', default=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5],
                         type=float, nargs='+')
@@ -144,22 +144,9 @@ def get_data_loaders(args):
         normalize,
     ])
 
-    # train_dataset = datasets.ImageFolder(
-    #     os.path.join(args.data, 'train'), train_transform)
-    # val_dataset = datasets.ImageFolder(
-    #     os.path.join(args.data, 'val'), val_transform)
+    train_dataset = datasets.ImageNet(root=args.data,  split='train', transform=train_transform)
 
-    # train_dataset = datasets.CIFAR10(root='./data', train=True,
-    #                                     download=True, transform=train_transform)
-
-
-    # val_dataset = datasets.CIFAR10(root='./data', train=False,
-    #                                    download=True, transform=val_transform)
-
-    train_dataset = datasets.ImageNet(root='/content/drive/MyDrive/ImageNet',  split='train', transform=train_transform)
-    
-
-    val_dataset = datasets.ImageNet(root='/content/drive/MyDrive/ImageNet', split='val', transform=val_transform)
+    val_dataset = datasets.ImageNet(root=args.data, split='val', transform=val_transform)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -167,11 +154,11 @@ def get_data_loaders(args):
         train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+        train_dataset, batch_size=64, shuffle=True,
         num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
 
     val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=256, shuffle=False,
+        val_dataset, batch_size=64, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
     return train_loader, val_loader, len(train_dataset), train_sampler

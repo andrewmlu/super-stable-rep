@@ -121,7 +121,7 @@ def get_args_parser():
                         help='url used to set up distributed training')
 
     # Dataset parameters
-    parser.add_argument('--csv_path', default='./data/MAE/MAE_train.csv',
+    parser.add_argument('--csv_path', default='/content/drive/MyDrive/Super-Stable-Rep/data/img-captions.csv',
                         help='csv file path')
     parser.add_argument('--folder_list', nargs='+',
                         help='A list of items')
@@ -219,6 +219,7 @@ def main(args):
         tokenizer=args.tokenizer if args.add_language else None,
     )
     main_print(len(train_dataset))
+    print(f"Length: {len(train_dataset)}")
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
