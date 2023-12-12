@@ -25,7 +25,7 @@ python main_stablerep.py \
     --n_img 6 --downsample --downsample_prob 0.05 --down_res 64 128
 ```
 
-To run the SuperStableRep model with multi-negative contrastive learning, simply add the --neg tag to your arguments as follows:
+To run the SuperStableRep model with multi-negative contrastive learning, simply add the --neg flag to your arguments as follows:
 
 ```commandline
 python main_stablerep.py \
