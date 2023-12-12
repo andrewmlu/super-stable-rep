@@ -19,6 +19,7 @@ python main_stablerep.py \
     --output_dir /path/to/output_model \
     --log_dir /path/to/output_log \
     --csv_path /path/to/csv_file \
+    --folder_list /data/path/ \
     --n_img 6 --downsample --downsample_prob 0.05 --down_res 64 128
 ```
 
@@ -34,6 +35,7 @@ python main_stablerep.py \
     --output_dir /path/to/output_model \
     --log_dir /path/to/output_log \
     --csv_path /path/to/csv_file \
+    --folder_list /data/path/ \
     --n_img 6 --downsample --downsample_prob 0.05 --down_res 64 128 \
     --neg
 ```
